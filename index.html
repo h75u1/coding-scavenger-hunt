@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CYBER-ESCAPE // Multi-Room Code Scavenger Hunt</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['"Fira Code"', 'ui-monospace', 'monospace'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            cyber: {
+              dark: '#080c14',
+              surface: '#0f172a',
+              card: '#131e36',
+              cyan: '#06b6d4',
+              emerald: '#10b981',
+              amber: '#f59e0b',
+              rose: '#f43f5e',
+              border: '#1e293b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #070b14;
+      color: #f1f5f9;
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+    .font-mono {
+      font-family: 'Fira Code', monospace;
+    }
+    .glow-cyan {
+      box-shadow: 0 0 25px -4px rgba(6, 182, 212, 0.4);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 25px -4px rgba(16, 185, 129, 0.4);
+    }
+    .scanline {
+      pointer-events: none;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                  linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+      background-size: 100% 3px, 6px 100%;
+    }
+    @keyframes shake-anim {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+    .shake {
+      animation: shake-anim 0.35s ease-in-out;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen selection:bg-cyan-500 selection:text-black antialiased relative">
+  <!-- Subtle CRT Scanline overlay -->
+  <div class="fixed inset-0 scanline z-40 pointer-events-none opacity-40"></div>
+
+  <div class="max-w-7xl mx-auto px-3 sm:px-6 py-4 flex flex-col min-h-screen relative z-10">
+    
+    <!-- Top System HUD Banner -->
+    <header class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 mb-4 shadow-2xl backdrop-blur">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <!-- Title & Subtitle -->
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 font-mono font-black text-xl shadow-lg glow-cyan">
+            &gt;_
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-xs uppercase tracking-widest text-cyan-400 font-bold">TERMINAL ESCAPE // SEC-404</span>
+              <span class="bg-cyan-500/10 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full border border-cyan-500/30 uppercase font-mono font-semibold">Active Lockdown</span>
+            </div>
+            <h1 class="text-lg sm:text-2xl font-extrabold tracking-tight text-white">
+              Multi-Room Code Scavenger Hunt
+            </h1>
+          </div>
+        </div>
+
+        <!-- Controls: Track Selector & 45m Timer -->
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Track Selector -->
+          <div class="flex items-center bg-slate-950 rounded-xl border border-slate-800 p-1">
+            <button onclick="switchTrack('beginner')" id="btn-track-beginner" class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all font-bold bg-cyan-600 text-slate-950">
+              Beginner
+            </button>
+            <button onclick="switchTrack('intermediate')" id="btn-track-intermediate" class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all text-slate-400 hover:text-white">
+              Intermediate
+            </button>
+            <button onclick="switchTrack('coder')" id="btn-track-coder" class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all text-slate-400 hover:text-white">
+              Coder
+            </button>
+          </div>
+
+          <!-- Timer HUD -->
+          <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-1.5 font-mono shadow-inner">
+            <span class="text-cyan-400 text-base">&#9201;</span>
+            <span id="timer-display" class="text-base sm:text-lg font-bold tracking-widest text-cyan-400">45:00</span>
+            <button onclick="toggleTimer()" id="timer-toggle-btn" class="hover:text-cyan-300 px-1 text-slate-400 text-xs font-bold" title="Pause/Resume">&#10074;&#10074;</button>
+            <button onclick="resetMission()" class="hover:text-rose-400 px-1 text-slate-400 text-xs font-bold" title="Reset Session">&#8635;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Room Progression Stepper -->
+      <nav aria-label="Room progress" class="mt-4 pt-3 border-t border-slate-800/80 grid grid-cols-5 gap-2 text-center text-xs font-mono">
+        <button onclick="jumpToRoom(1)" id="step-room-1" class="py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center transition-all bg-cyan-950/70 border-cyan-400 text-cyan-300 glow-cyan">
+          <span class="font-bold flex items-center gap-1"><span id="icon-room-1">&#128275;</span> RM-01</span>
+          <span class="text-[10px] opacity-75 truncate max-w-full" id="label-room-1">Vector</span>
+        </button>
+        <button onclick="jumpToRoom(2)" id="step-room-2" class="py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center transition-all bg-slate-950 border-slate-800 text-slate-500 opacity-60 cursor-not-allowed">
+          <span class="font-bold flex items-center gap-1"><span id="icon-room-2">&#128274;</span> RM-02</span>
+          <span class="text-[10px] opacity-75 truncate max-w-full" id="label-room-2">Circuit</span>
+        </button>
+        <button onclick="jumpToRoom(3)" id="step-room-3" class="py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center transition-all bg-slate-950 border-slate-800 text-slate-500 opacity-60 cursor-not-allowed">
+          <span class="font-bold flex items-center gap-1"><span id="icon-room-3">&#128274;</span> RM-03</span>
+          <span class="text-[10px] opacity-75 truncate max-w-full" id="label-room-3">Loop</span>
+        </button>
+        <button onclick="jumpToRoom(4)" id="step-room-4" class="py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center transition-all bg-slate-950 border-slate-800 text-slate-500 opacity-60 cursor-not-allowed">
+          <span class="font-bold flex items-center gap-1"><span id="icon-room-4">&#128274;</span> RM-04</span>
+          <span class="text-[10px] opacity-75 truncate max-w-full" id="label-room-4">Flag</span>
+        </button>
+        <button onclick="jumpToRoom(5)" id="step-room-5" class="py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center transition-all bg-slate-950 border-slate-800 text-slate-500 opacity-60 cursor-not-allowed">
+          <span class="font-bold flex items-center gap-1"><span id="icon-room-5">&#128272;</span> RM-05</span>
+          <span class="text-[10px] opacity-75 truncate max-w-full text-rose-400 font-semibold" id="label-room-5">Master Core</span>
+        </button>
+      </nav>
+    </header>
+
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 items-start">
+      
+      <!-- Primary Challenge Chamber (Left 8 Cols) -->
+      <section class="lg:col-span-8 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col justify-between min-h-[580px]">
+        <div>
+          <!-- Room Title Header & Solved Pill -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-800">
+            <div>
+              <div class="flex items-center gap-2">
+                <span id="room-badge-num" class="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800 px-2.5 py-0.5 rounded-md">ROOM 01 OF 05</span>
+                <span id="track-indicator-pill" class="text-xs font-mono font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2.5 py-0.5 rounded-md">ABSOLUTE BEGINNER</span>
+              </div>
+              <h2 id="room-title" class="text-xl sm:text-2xl font-black text-white mt-1.5">The Robot Grid Vector</h2>
+            </div>
+            
+            <div id="room-solved-status" class="hidden items-center gap-1.5 text-xs font-mono font-semibold text-emerald-400 bg-emerald-950/70 border border-emerald-500/40 px-3.5 py-1 rounded-full glow-emerald">
+              &#10003; KEY VERIFIED
+            </div>
+          </div>
+
+          <!-- Mission Story & Code Box -->
+          <div class="space-y-4">
+            <p id="room-lore" class="text-slate-300 text-sm sm:text-base leading-relaxed">
+              A helper rover is trapped at (0, 0) on a 4x4 coordinate plane. Follow its instructions to find its final destination.
+            </p>
+
+            <!-- Code Editor Frame -->
+            <div class="relative rounded-xl bg-slate-950 border border-slate-800 overflow-hidden font-mono text-xs sm:text-sm shadow-inner">
+              <div class="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 text-slate-400">
+                <span id="code-snippet-title" class="text-cyan-400 font-mono text-xs font-semibold flex items-center gap-1.5">
+                  &#128196; rover_path.py
+                </span>
+                <button onclick="copySnippet()" class="text-slate-400 hover:text-cyan-300 transition-colors text-xs font-mono flex items-center gap-1">
+                  <span>&#128203;</span> Copy Code
+                </button>
+              </div>
+              <pre class="p-4 text-cyan-300 overflow-x-auto leading-relaxed whitespace-pre font-mono selection:bg-cyan-900" id="puzzle-code-display">
+# Initializing Rover at (0, 0)
+MOVE_NORTH(2)
+MOVE_EAST(3)
+IF at_wall THEN MOVE_WEST(1) ELSE MOVE_SOUTH(1)
+MOVE_WEST(1)
+              </pre>
+            </div>
+
+            <!-- Objective Box -->
+            <div class="bg-cyan-950/30 border border-cyan-900/60 rounded-xl p-3.5 text-xs sm:text-sm text-cyan-200 flex items-start gap-3">
+              <span class="text-cyan-400 text-base font-bold leading-none">&#9432;</span>
+              <div id="room-target-desc" class="space-y-1">
+                Determine the final coordinates of the rover formatted as <code class="bg-black/60 px-1.5 py-0.5 rounded text-cyan-300 font-mono">(X,Y)</code>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submission and Hint Panel -->
+        <div class="mt-6 pt-4 border-t border-slate-800">
+          <form id="key-submit-form" onsubmit="handleKeySubmit(event)" class="space-y-3">
+            <div class="flex flex-col sm:flex-row items-stretch gap-2.5">
+              <input 
+                type="text" 
+                id="key-input"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Enter Key to transmit..."
+                class="flex-1 px-4 py-3 bg-slate-950 border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl text-white font-mono text-sm placeholder-slate-500 focus:outline-none transition-all shadow-inner"
+              >
+              <button 
+                type="submit" 
+                class="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 active:bg-cyan-600 text-slate-950 font-bold font-mono text-sm rounded-xl flex items-center justify-center gap-2 glow-cyan transition-all shrink-0 cursor-pointer"
+              >
+                <span>TRANSMIT KEY</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+
+            <!-- Validation Feedback Alert -->
+            <div id="feedback-alert" class="hidden p-3 rounded-xl text-xs font-mono items-center gap-2"></div>
+          </form>
+
+          <!-- Hints System -->
+          <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-400 font-mono font-medium">Hints:</span>
+              <button onclick="revealHint(1)" id="hint-1-btn" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs rounded-lg border border-amber-900/60 font-mono transition-colors">
+                Hint 1 (+1m)
+              </button>
+              <button onclick="revealHint(2)" id="hint-2-btn" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs rounded-lg border border-amber-900/60 font-mono transition-colors">
+                Hint 2 (+1m)
+              </button>
+            </div>
+            
+            <span id="hint-penalty-badge" class="text-xs font-mono text-slate-500">
+              Penalties applied: 0m
+            </span>
+          </div>
+
+          <!-- Hint Output Box -->
+          <div id="hint-display-box" class="hidden mt-3 p-3.5 bg-amber-950/20 border border-amber-600/30 rounded-xl text-amber-200 font-mono text-xs leading-relaxed space-y-1.5">
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Sidebar (4 Cols) -->
+      <aside class="lg:col-span-4 space-y-4">
+        
+        <!-- Key Vault Inventory Card -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-2xl backdrop-blur">
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+            <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+              <span>&#128451;</span> Key Vault
+            </h3>
+            <span id="keys-collected-count" class="text-xs font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">0 / 4 Discovered</span>
+          </div>
+
+          <div class="space-y-2 text-xs font-mono">
+            <div id="hud-key-1" class="p-3 rounded-xl border border-slate-800 bg-slate-950 flex items-center justify-between transition-all">
+              <span class="text-slate-400"><b class="text-cyan-400">K1:</b> <span id="hud-name-1">Alpha Vector</span></span>
+              <span id="hud-val-1" class="text-slate-600 font-bold tracking-wider">[LOCKED]</span>
+            </div>
+            <div id="hud-key-2" class="p-3 rounded-xl border border-slate-800 bg-slate-950 flex items-center justify-between transition-all">
+              <span class="text-slate-400"><b class="text-cyan-400">K2:</b> <span id="hud-name-2">Beta Circuit</span></span>
+              <span id="hud-val-2" class="text-slate-600 font-bold tracking-wider">[LOCKED]</span>
+            </div>
+            <div id="hud-key-3" class="p-3 rounded-xl border border-slate-800 bg-slate-950 flex items-center justify-between transition-all">
+              <span class="text-slate-400"><b class="text-cyan-400">K3:</b> <span id="hud-name-3">Gamma Loop</span></span>
+              <span id="hud-val-3" class="text-slate-600 font-bold tracking-wider">[LOCKED]</span>
+            </div>
+            <div id="hud-key-4" class="p-3 rounded-xl border border-slate-800 bg-slate-950 flex items-center justify-between transition-all">
+              <span class="text-slate-400"><b class="text-cyan-400">K4:</b> <span id="hud-name-4">Delta Flag</span></span>
+              <span id="hud-val-4" class="text-slate-600 font-bold tracking-wider">[LOCKED]</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trace Scratchpad / Code Runner -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-col h-[380px] backdrop-blur">
+          <div class="flex items-center justify-between pb-3 mb-2 border-b border-slate-800">
+            <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <span>&#128187;</span> Scratchpad &amp; Evaluator
+            </h3>
+            <div class="flex items-center gap-2">
+              <button onclick="runScratchpad()" class="hover:text-emerald-400 bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-300 text-xs font-mono font-medium transition-colors" title="Execute as JavaScript">
+                &#9658; Run JS
+              </button>
+              <button onclick="clearScratchpad()" class="hover:text-rose-400 bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-slate-400 text-xs font-mono transition-colors" title="Clear notes">
+                &#128465;
+              </button>
+            </div>
+          </div>
+
+          <textarea 
+            id="scratchpad-input"
+            spellcheck="false"
+            class="flex-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-xs text-emerald-300 focus:outline-none focus:border-cyan-500/50 resize-none shadow-inner"
+            placeholder="// Scratchpad: Test logic, math, or loops...&#10;let total = 0;&#10;for(let i=0; i<4; i++) total += 3;&#10;total + 10;"
+          ></textarea>
+
+          <div id="scratchpad-output" class="mt-2.5 p-2.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-cyan-300 max-h-24 overflow-y-auto hidden">
+            Output: <span id="scratchpad-output-text" class="font-bold"></span>
+          </div>
+        </div>
+
+      </aside>
+
+    </main>
+
+    <!-- Footer Status -->
+    <footer class="mt-4 py-2 border-t border-slate-800/80 text-center text-xs font-mono text-slate-500 flex flex-wrap items-center justify-between">
+      <span>GRID OVERRIDE PROTOCOL // STATUS: LOCKED</span>
+      <span>ESTIMATED MISSION DURATION: 35-50 MIN</span>
+    </footer>
+
+  </div>
+
+  <!-- Victory Overlay Modal -->
+  <div id="victory-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="max-w-md w-full bg-slate-900 border-2 border-emerald-500 rounded-2xl p-6 sm:p-8 text-center glow-emerald shadow-2xl">
+      <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-3xl font-bold">
+        &#10003;
+      </div>
+
+      <span class="font-mono text-xs text-emerald-400 tracking-widest uppercase font-bold">Quarantine Decrypted</span>
+      <h2 class="text-2xl font-black text-white mt-1 mb-2">LOCKDOWN OVERRIDDEN!</h2>
+      <p class="text-slate-300 text-xs sm:text-sm mb-6">
+        All 5 security barriers have been breached and verified. The master terminal is fully restored.
+      </p>
+
+      <div class="grid grid-cols-3 gap-2 bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono text-xs mb-6 shadow-inner">
+        <div>
+          <span class="text-slate-500 block text-[10px]">TIME TAKEN</span>
+          <span id="victory-time-taken" class="text-cyan-400 text-sm font-bold">--:--</span>
+        </div>
+        <div>
+          <span class="text-slate-500 block text-[10px]">HINTS USED</span>
+          <span id="victory-hints-used" class="text-amber-400 text-sm font-bold">0</span>
+        </div>
+        <div>
+          <span class="text-slate-500 block text-[10px]">TRACK</span>
+          <span id="victory-track-name" class="text-emerald-400 text-sm font-bold">Beginner</span>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-2.5 justify-center font-mono text-xs">
+        <button onclick="shareVictory()" class="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold transition-all shadow-md">
+          Copy Certificate
+        </button>
+        <button onclick="resetMission()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold border border-slate-700 transition-all">
+          Play Again
+        </button>
+      </div>
+
+      <div id="share-notification" class="mt-3 text-xs font-mono text-emerald-400 opacity-0 transition-opacity">
+        Results copied to clipboard!
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PUZZLE_DATA = {
+      beginner: {
+        name: "Absolute Beginner",
+        labels: ["Vector", "Circuit", "Loop", "Slices", "Master Core"],
+        keyNames: ["Alpha Vector", "Beta Circuit", "Gamma Loop", "Delta Flag"],
+        rooms: [
+          {
+            roomNum: 1,
+            title: "The Robot Grid Vector",
+            lore: "A helper rover is trapped at (0, 0) on a 4x4 coordinate plane (bottom-left (0,0), top-right (3,3)). Follow its instructions line-by-line to calculate its final resting coordinates.",
+            codeSnippet: "# 4x4 Grid Navigation Program\n# Start Position: (0, 0)\nMOVE_NORTH(2)\nMOVE_EAST(3)\nIF at_wall THEN MOVE_WEST(1) ELSE MOVE_SOUTH(1)\nMOVE_WEST(1)",
+            filename: "rover_path.py",
+            targetDesc: "Key 1 is the coordinate pair formatted as <code class='bg-black/60 px-1.5 py-0.5 rounded text-cyan-300 font-mono'>(X,Y)</code> or <code class='bg-black/60 px-1.5 py-0.5 rounded text-cyan-300 font-mono'>X,Y</code>.",
+            acceptedKeys: ["(1,2)", "1,2", "(1, 2)", "1, 2"],
+            canonicalKey: "(1,2)",
+            hint1: "The rover moves North to (0,2), then East to (3,2). In a 4x4 grid (0 to 3), coordinate x=3 is an east wall!",
+            hint2: "Because at_wall is true, it moves West 1 to (2,2). Then line 4 moves West 1 again to (1,2)."
+          },
+          {
+            roomNum: 2,
+            title: "The Logic Gate Corridor",
+            lore: "An airlock requires three pressure switches: A, B, and C. A is TRUE, B is FALSE, and C is TRUE. Determine which of the four door circuits evaluates to OPEN (TRUE).",
+            codeSnippet: "# Sensor States:\nA = TRUE\nB = FALSE\nC = TRUE\n\nCircuit 1: A AND B\nCircuit 2: (NOT C) OR B\nCircuit 3: (A AND C) AND (NOT B)\nCircuit 4: (A OR B) AND (NOT C)",
+            filename: "airlock_logic.v",
+            targetDesc: "Key 2 is the winning circuit number (enter digit 1, 2, 3, or 4).",
+            acceptedKeys: ["3", "circuit 3", "circuit3"],
+            canonicalKey: "3",
+            hint1: "AND requires both sides to be TRUE. NOT flips TRUE to FALSE and FALSE to TRUE.",
+            hint2: "In Circuit 3: (A AND C) is (TRUE AND TRUE) = TRUE. NOT B is NOT FALSE = TRUE. TRUE AND TRUE gives TRUE!"
+          },
+          {
+            roomNum: 3,
+            title: "The Recipe Loop",
+            lore: "A conveyor system counts parts in a register named 'Total'. Calculate the exact integer value stored in Total after this sequence finishes.",
+            codeSnippet: "Set Total = 0\nRepeat 4 times:\n    Add 5 to Total\n    Subtract 2 from Total\nIf Total is greater than 10:\n    Add 10 to Total",
+            filename: "sorter_loop.txt",
+            targetDesc: "Key 3 is the final numeric value of Total.",
+            acceptedKeys: ["22"],
+            canonicalKey: "22",
+            hint1: "Each repetition adds 5 and subtracts 2, which is +3 net per loop iteration.",
+            hint2: "4 repeats * 3 = 12. Since 12 > 10 is true, the final condition adds 10: 12 + 10 = 22."
+          },
+          {
+            roomNum: 4,
+            title: "The String Index Scrambler",
+            lore: "Extract letters using 0-indexed positions where index 0 is the first letter 'A'.",
+            codeSnippet: 'WORD = "ALGORITHM"\n# Index: 0=A, 1=L, 2=G, 3=O, 4=R, 5=I, 6=T, 7=H, 8=M\n\nResult = WORD[2] + WORD[0] + WORD[5] + WORD[7]',
+            filename: "cipher.py",
+            targetDesc: "Key 4 is the assembled 4-letter English word.",
+            acceptedKeys: ["GAIT"],
+            canonicalKey: "GAIT",
+            hint1: "Index 2 corresponds to 'G', and index 0 corresponds to 'A'.",
+            hint2: "Index 5 is 'I' and index 7 is 'T'. Together they spell 'GAIT'."
+          },
+          {
+            roomNum: 5,
+            title: "The Master Lockdown Core",
+            lore: "Synthesize all 4 cleared keys into the main bypass sequence: [Key1_without_parens]-[Key2]-[Key3]-[Key4]",
+            codeSnippet: "# Final Lockdown Override Formula\n# Format: [Key1_without_parens]-[Key2]-[Key3]-[Key4]\n# Key 1 = (1,2) -> strip parens to 1,2\n# Key 2 = 3\n# Key 3 = 22\n# Key 4 = GAIT",
+            filename: "core_override.sh",
+            targetDesc: "Enter the complete assembled passcode string (e.g., 1,2-3-22-GAIT).",
+            acceptedKeys: ["1,2-3-22-GAIT", "1,2-3-22-gait"],
+            canonicalKey: "1,2-3-22-GAIT",
+            hint1: "Strip the parentheses from (1,2) to get '1,2'.",
+            hint2: "Join the keys with dashes: 1,2-3-22-GAIT."
+          }
+        ]
+      },
+      intermediate: {
+        name: "Mild / Intermediate",
+        labels: ["Stride", "Stack", "Filter", "Bitwise", "Master Core"],
+        keyNames: ["Stride Sum", "Stack Sum", "Transformed", "Flag Byte"],
+        rooms: [
+          {
+            roomNum: 1,
+            title: "The Stride-Loop Chamber",
+            lore: "Trace the step parameter and index bounds in this Python loop. What is the final value accumulated in variable acc?",
+            codeSnippet: "nums = [4, 7, 2, 9, 12, 15, 8]\nacc = 0\n\nfor i in range(1, len(nums) - 1, 2):\n    acc += nums[i]\n\n# Key 1 is the value of acc",
+            filename: "stride_loop.py",
+            targetDesc: "Key 1 is the integer value of acc.",
+            acceptedKeys: ["31"],
+            canonicalKey: "31",
+            hint1: "len(nums) is 7. range(1, 6, 2) produces indices 1, 3, and 5.",
+            hint2: "nums[1]=7, nums[3]=9, nums[5]=15. Total: 7 + 9 + 15 = 31."
+          },
+          {
+            roomNum: 2,
+            title: "The Stack Pointer",
+            lore: "Trace a Last-In, First-Out (LIFO) stack through push and pop operations.",
+            codeSnippet: 'stack = []\nstream = ["push_5", "push_8", "push_3", "pop", "push_2", "push_7", "pop"]\n\nfor cmd in stream:\n    action = cmd.split("_")\n    if action[0] == "push":\n        stack.append(int(action[1]))\n    elif action[0] == "pop":\n        stack.pop()\n\n# Key 2 is the sum of all elements remaining in stack',
+            filename: "lifo_stack.py",
+            targetDesc: "Key 2 is the integer sum of all numbers remaining in the stack.",
+            acceptedKeys: ["15"],
+            canonicalKey: "15",
+            hint1: "A pop removes the most recently pushed element from the top of the stack.",
+            hint2: "The final stack contains [5, 8, 2]. Sum: 5 + 8 + 2 = 15."
+          },
+          {
+            roomNum: 3,
+            title: "Slice, Filter & Transform",
+            lore: "Filter out unwanted characters and apply reverse string indexing and uppercase conversion.",
+            codeSnippet: 'text = "d3b_uG_94x_r3v"\n\n# Step 1: Filter characters that are NOT digits and NOT underscores\nfiltered = "".join([c for c in text if not c.isdigit() and c != "_"])\n\n# Step 2: Reverse filtered string and convert to uppercase\nresult = filtered[::-1].upper()\n# Key 3 is result',
+            filename: "filter_transform.py",
+            targetDesc: "Key 3 is the uppercase transformed string.",
+            acceptedKeys: ["VXGUBD"],
+            canonicalKey: "VXGUBD",
+            hint1: "Filtered string without digits and underscores is 'dbuGxv'.",
+            hint2: "Reversing 'dbuGxv' gives 'vxGuBd'. In uppercase, it becomes 'VXGUBD'."
+          },
+          {
+            roomNum: 4,
+            title: "Binary Flag Registry",
+            lore: "Evaluate bitwise shift operators (1 << N) and bit masking.",
+            codeSnippet: "flags = 0b00000000\n\n# Set bit 1, bit 3, and bit 6 (0-indexed from right)\nflags |= (1 << 1) | (1 << 3) | (1 << 6)\n\n# Clear bit 1\nflags &= ~(1 << 1)\n\n# Key 4 is the decimal integer value of flags",
+            filename: "bitwise_flags.py",
+            targetDesc: "Key 4 is the decimal integer value of flags.",
+            acceptedKeys: ["72"],
+            canonicalKey: "72",
+            hint1: "1<<1 is 2, 1<<3 is 8, 1<<6 is 64. Setting them gives 2 + 8 + 64 = 74.",
+            hint2: "Clearing bit 1 removes 2: 74 - 2 = 72."
+          },
+          {
+            roomNum: 5,
+            title: "The Master Lockdown Core",
+            lore: "Calculate the mathematical formula: (Key1 * Key2) + Key4, concatenated with '-' and Key3.",
+            codeSnippet: "# Final Master Escape Equation:\n# Passcode = str((Key1 * Key2) + Key4) + '-' + Key3\n# Key1 = 31, Key2 = 15, Key3 = 'VXGUBD', Key4 = 72",
+            filename: "core_math.py",
+            targetDesc: "Enter the resulting string (e.g., 537-VXGUBD).",
+            acceptedKeys: ["537-VXGUBD"],
+            canonicalKey: "537-VXGUBD",
+            hint1: "31 * 15 = 465. 465 + 72 = 537.",
+            hint2: "Combine with Key 3: 537-VXGUBD."
+          }
+        ]
+      },
+      coder: {
+        name: "Seasoned Coder",
+        labels: ["Two-Pointer", "Recursion", "XOR Cipher", "Mutation", "Master Core"],
+        keyNames: ["Pair Count", "Memo Walk", "Plaintext", "Mutated Val"],
+        rooms: [
+          {
+            roomNum: 1,
+            title: "Two-Pointer Invariant",
+            lore: "Trace this two-pointer search on a sorted integer slice. How many pairs satisfy sum <= 10?",
+            codeSnippet: "def solve(arr, target):\n    arr.sort()\n    left, right = 0, len(arr) - 1\n    count = 0\n    while left < right:\n        s = arr[left] + arr[right]\n        if s <= target:\n            count += (right - left)\n            left += 1\n        else:\n            right -= 1\n    return count\n\ndata = [9, 1, 4, 7, 2, 5]\n# Key 1 is solve(data, 10)",
+            filename: "two_pointers.py",
+            targetDesc: "Key 1 is the integer returned by solve(data, 10).",
+            acceptedKeys: ["9"],
+            canonicalKey: "9",
+            hint1: "Sorted array is [1, 2, 4, 5, 7, 9]. At left=0, right=5: 1+9=10 <= 10, adding (5-0)=5 to count.",
+            hint2: "Left moves to 1: 2+9=11 > 10, right moves to 4. 2+7=9 adds 3 (total 8). Next 4+5=9 adds 1. Total count is 9."
+          },
+          {
+            roomNum: 2,
+            title: "Recursive Memo Matrix Walk",
+            lore: "Trace through this constrained 2D grid path walk with a modulo branching condition.",
+            codeSnippet: "def memo_walk(r, c, memo={}):\n    if (r, c) in memo:\n        return memo[(r, c)]\n    if r == 0 or c == 0:\n        return 1\n    if (r + c) % 3 == 0:\n        val = memo_walk(r - 1, c, memo)\n    else:\n        val = memo_walk(r - 1, c, memo) + memo_walk(r, c - 1, memo)\n    memo[(r, c)] = val\n    return val\n\n# Key 2 is memo_walk(3, 3, {})",
+            filename: "matrix_memo.py",
+            targetDesc: "Key 2 is the integer returned by memo_walk(3, 3, {}).",
+            acceptedKeys: ["5"],
+            canonicalKey: "5",
+            hint1: "At (3, 3), (3+3)%3 == 0, so it only recurses on (2, 3).",
+            hint2: "Tracing (2,3): (2+3)%3 != 0 -> calls (1,3) + (2,2). Subcells yield (1,3)=2 and (2,2)=3. Sum = 5."
+          },
+          {
+            roomNum: 3,
+            title: "XOR Stream Decryption",
+            lore: "Decrypt this sequence of byte hex literals XOR-masked with 0x1A into an ASCII string.",
+            codeSnippet: 'def decrypt(ciphertext, mask):\n    return "".join(chr(c ^ mask) for c in ciphertext)\n\npayload = [0x53, 0x4B, 0x59] # ASCII byte values\n# Key 3 is decrypt(payload, 0x1A)',
+            filename: "xor_cipher.py",
+            targetDesc: "Key 3 is the 3-letter ASCII plaintext result.",
+            acceptedKeys: ["IQC"],
+            canonicalKey: "IQC",
+            hint1: "0x53 ^ 0x1A = 0x49 (decimal 73). In ASCII, 73 is 'I'.",
+            hint2: "0x4B ^ 0x1A = 0x51 ('Q') and 0x59 ^ 0x1A = 0x43 ('C'). Result is 'IQC'."
+          },
+          {
+            roomNum: 4,
+            title: "In-Place List Mutation Trap",
+            lore: "Trace the loop iterating over range(len(lst)) while mutating the list in-place.",
+            codeSnippet: "def mutate(lst):\n    for i in range(len(lst)): # range(3) -> i = 0, 1, 2\n        if lst[i] % 2 == 0:\n            lst[i] //= 2\n        else:\n            lst.append(lst[i] * 2)\n            if len(lst) >= 8:\n                break\n    return len(lst) * sum(lst[-3:])\n\nnums = [6, 3, 4]\n# Key 4 is mutate(nums)",
+            filename: "mutate_trap.py",
+            targetDesc: "Key 4 is the return value of mutate([6, 3, 4]).",
+            acceptedKeys: ["44"],
+            canonicalKey: "44",
+            hint1: "i=0: 6 becomes 3 [3,3,4]. i=1: 3 is odd, appends 6 [3,3,4,6]. i=2: 4 becomes 2 [3,3,2,6]. Range loop ends.",
+            hint2: "Final list has length 4. The last 3 elements are [3, 2, 6] with sum 11. Return is 4 * 11 = 44."
+          },
+          {
+            roomNum: 5,
+            title: "The Master Lockdown Core",
+            lore: "Construct: HEX(Key1 + Key4) + '_' + Key3 + '_' + (Key2 ^ 7). (Use uppercase hex without 0x prefix).",
+            codeSnippet: "# Final Master Escape Construction\n# Key1 = 9, Key2 = 5, Key3 = 'IQC', Key4 = 44\n# Formula: HEX(9 + 44) + '_' + 'IQC' + '_' + (5 ^ 7)",
+            filename: "final_core.py",
+            targetDesc: "Enter the resulting string (e.g., 35_IQC_2).",
+            acceptedKeys: ["35_IQC_2"],
+            canonicalKey: "35_IQC_2",
+            hint1: "9 + 44 = 53. 53 in hexadecimal is 35 (16*3 + 5).",
+            hint2: "5 ^ 7 = 2 (0101 ^ 0111 = 0010). Passcode is 35_IQC_2."
+          }
+        ]
+      }
+    };
+
+    // State Variables
+    let currentTrack = 'beginner';
+    let currentRoom = 1;
+    let unlockedRooms = [1];
+    let collectedKeys = {};
+    let totalHintsUsed = 0;
+    let penaltyMinutes = 0;
+
+    const INITIAL_SECONDS = 45 * 60;
+    let timeRemaining = INITIAL_SECONDS;
+    let timerInterval = null;
+    let isTimerRunning = true;
+  </script>
+
+  <script>
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (!isTimerRunning) return;
+        if (timeRemaining > 0) {
+          timeRemaining--;
+          updateTimerDisplay();
+        } else {
+          clearInterval(timerInterval);
+          showFeedback("TIME LIMIT EXPIRED! You may continue deciphering.", "error");
+        }
+      }, 1000);
+      updateTimerDisplay();
+    }
+
+    function updateTimerDisplay() {
+      const minutes = Math.floor(timeRemaining / 60);
+      const seconds = timeRemaining % 60;
+      document.getElementById('timer-display').innerText = 
+        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function toggleTimer() {
+      isTimerRunning = !isTimerRunning;
+      document.getElementById('timer-toggle-btn').innerText = isTimerRunning ? "❚❚" : "►";
+    }
+
+    function switchTrack(trackKey) {
+      if (trackKey === currentTrack) return;
+      currentTrack = trackKey;
+      unlockedRooms = [1];
+      collectedKeys = {};
+      renderTrackButtons();
+      updateHUDLabels();
+      updateHUDKeys();
+      loadRoom(1);
+      showFeedback(`Switched to ${PUZZLE_DATA[trackKey].name} track.`, "info");
+    }
+
+    function renderTrackButtons() {
+      ['beginner', 'intermediate', 'coder'].forEach(t => {
+        const btn = document.getElementById(`btn-track-${t}`);
+        if (t === currentTrack) {
+          btn.className = "px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-cyan-600 text-slate-950 transition-all";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-white transition-all";
+        }
+      });
+      document.getElementById('track-indicator-pill').innerText = PUZZLE_DATA[currentTrack].name.toUpperCase();
+    }
+
+    function updateHUDLabels() {
+      const labels = PUZZLE_DATA[currentTrack].labels;
+      const keyNames = PUZZLE_DATA[currentTrack].keyNames;
+      for (let i = 1; i <= 5; i++) {
+        document.getElementById(`label-room-${i}`).innerText = labels[i - 1];
+        if (i <= 4) {
+          document.getElementById(`hud-name-${i}`).innerText = keyNames[i - 1];
+        }
+      }
+    }
+
+    function jumpToRoom(roomNum) {
+      if (!unlockedRooms.includes(roomNum)) {
+        showFeedback(`Room ${roomNum} is locked. Decrypt the earlier rooms first!`, "error");
+        return;
+      }
+      loadRoom(roomNum);
+    }
+
+    function loadRoom(roomNum) {
+      currentRoom = roomNum;
+      const room = PUZZLE_DATA[currentTrack].rooms[roomNum - 1];
+
+      // Update room stepper
+      for (let i = 1; i <= 5; i++) {
+        const stepBtn = document.getElementById(`step-room-${i}`);
+        const iconSpan = document.getElementById(`icon-room-${i}`);
+        const isUnlocked = unlockedRooms.includes(i);
+        const isCurrent = (i === roomNum);
+        const isSolved = collectedKeys[i] !== undefined;
+
+        stepBtn.className = "py-2.5 px-2 rounded-xl border flex flex-col items-center justify-center transition-all text-xs font-mono ";
+
+        if (isCurrent) {
+          stepBtn.className += "bg-cyan-950/70 border-cyan-400 text-cyan-300 glow-cyan";
+          iconSpan.innerHTML = isSolved ? "&#10003;" : "&#128275;";
+        } else if (isSolved) {
+          stepBtn.className += "bg-emerald-950/50 border-emerald-500/50 text-emerald-400";
+          iconSpan.innerHTML = "&#10003;";
+        } else if (isUnlocked) {
+          stepBtn.className += "bg-slate-900 border-slate-700 text-slate-300";
+          iconSpan.innerHTML = "&#128275;";
+        } else {
+          stepBtn.className += "bg-slate-950 border-slate-800 text-slate-500 opacity-60 cursor-not-allowed";
+          iconSpan.innerHTML = (i === 5) ? "&#128272;" : "&#128274;";
+        }
+      }
+
+      // Populate room text
+      document.getElementById('room-badge-num').innerText = `ROOM 0${roomNum} OF 05`;
+      document.getElementById('room-title').innerText = room.title;
+      document.getElementById('room-lore').innerText = room.lore;
+      document.getElementById('puzzle-code-display').innerText = room.codeSnippet;
+      document.getElementById('code-snippet-title').innerHTML = `&#128196; ${room.filename}`;
+      document.getElementById('room-target-desc').innerHTML = room.targetDesc;
+
+      const solvedBadge = document.getElementById('room-solved-status');
+      if (collectedKeys[roomNum]) {
+        solvedBadge.classList.remove('hidden');
+        solvedBadge.classList.add('flex');
+      } else {
+        solvedBadge.classList.add('hidden');
+        solvedBadge.classList.remove('flex');
+      }
+
+      const input = document.getElementById('key-input');
+      input.value = "";
+      input.placeholder = roomNum === 5 ? "Assemble all keys & enter final code..." : `Enter Key ${roomNum} to unlock...`;
+
+      document.getElementById('hint-display-box').classList.add('hidden');
+      document.getElementById('hint-display-box').innerHTML = "";
+      hideFeedback();
+    }
+
+    function handleKeySubmit(e) {
+      e.preventDefault();
+      const inputEl = document.getElementById('key-input');
+      const val = inputEl.value.trim();
+
+      if (!val) {
+        showFeedback("Please enter a key value first.", "error");
+        return;
+      }
+
+      const room = PUZZLE_DATA[currentTrack].rooms[currentRoom - 1];
+      const sanitized = val.toLowerCase().replace(/\s+/g, '');
+      const isCorrect = room.acceptedKeys.some(k => k.toLowerCase().replace(/\s+/g, '') === sanitized);
+
+      if (isCorrect) {
+        collectedKeys[currentRoom] = room.canonicalKey;
+        updateHUDKeys();
+
+        if (currentRoom < 5) {
+          const next = currentRoom + 1;
+          if (!unlockedRooms.includes(next)) unlockedRooms.push(next);
+          showFeedback(`ACCESS GRANTED: Key ${currentRoom} verified! Unlocking Room ${next}...`, "success");
+          setTimeout(() => loadRoom(next), 850);
+        } else {
+          showVictory();
+        }
+      } else {
+        showFeedback("ACCESS DENIED: Invalid key value. Check your logic or unlock a hint.", "error");
+        inputEl.classList.add('border-rose-500', 'shake');
+        setTimeout(() => inputEl.classList.remove('border-rose-500', 'shake'), 450);
+      }
+    }
+
+    function updateHUDKeys() {
+      let count = 0;
+      for (let i = 1; i <= 4; i++) {
+        const valSpan = document.getElementById(`hud-val-${i}`);
+        const card = document.getElementById(`hud-key-${i}`);
+        if (collectedKeys[i]) {
+          count++;
+          valSpan.innerText = collectedKeys[i];
+          valSpan.className = "text-cyan-300 font-bold font-mono tracking-wider";
+          card.classList.add('border-cyan-500/50', 'bg-cyan-950/20');
+        } else {
+          valSpan.innerText = "[LOCKED]";
+          valSpan.className = "text-slate-600 font-bold tracking-wider";
+          card.classList.remove('border-cyan-500/50', 'bg-cyan-950/20');
+        }
+      }
+      document.getElementById('keys-collected-count').innerText = `${count} / 4 Discovered`;
+    }
+
+    function showFeedback(msg, type) {
+      const fb = document.getElementById('feedback-alert');
+      fb.classList.remove('hidden', 'bg-emerald-950/60', 'text-emerald-300', 'border-emerald-600/50', 'bg-rose-950/60', 'text-rose-300', 'border-rose-600/50', 'bg-cyan-950/60', 'text-cyan-300', 'border-cyan-600/50');
+      fb.classList.add('flex', 'border');
+
+      if (type === 'success') {
+        fb.classList.add('bg-emerald-950/60', 'text-emerald-300', 'border-emerald-600/50');
+        fb.innerHTML = `<span class="font-bold">&#10003;</span> <span>${msg}</span>`;
+      } else if (type === 'error') {
+        fb.classList.add('bg-rose-950/60', 'text-rose-300', 'border-rose-600/50');
+        fb.innerHTML = `<span class="font-bold">&#10005;</span> <span>${msg}</span>`;
+      } else {
+        fb.classList.add('bg-cyan-950/60', 'text-cyan-300', 'border-cyan-600/50');
+        fb.innerHTML = `<span class="font-bold">&#9432;</span> <span>${msg}</span>`;
+      }
+    }
+
+    function hideFeedback() {
+      document.getElementById('feedback-alert').classList.add('hidden');
+    }
+
+    function revealHint(n) {
+      const room = PUZZLE_DATA[currentTrack].rooms[currentRoom - 1];
+      const box = document.getElementById('hint-display-box');
+      box.classList.remove('hidden');
+
+      if (timeRemaining > 60) timeRemaining -= 60;
+      else timeRemaining = 0;
+      penaltyMinutes++;
+      totalHintsUsed++;
+      updateTimerDisplay();
+
+      document.getElementById('hint-penalty-badge').innerText = `Penalties applied: +${penaltyMinutes}m`;
+      const text = n === 1 ? room.hint1 : room.hint2;
+      const el = document.createElement('div');
+      el.innerHTML = `<span class="text-amber-400 font-bold">[HINT ${n}]:</span> ${text}`;
+      box.appendChild(el);
+    }
+
+    function runScratchpad() {
+      const val = document.getElementById('scratchpad-input').value;
+      const out = document.getElementById('scratchpad-output');
+      const text = document.getElementById('scratchpad-output-text');
+      try {
+        const res = Function(`"use strict"; ${val}`)();
+        out.classList.remove('hidden', 'text-rose-400');
+        out.classList.add('text-cyan-300');
+        text.innerText = res !== undefined ? String(res) : "Executed successfully with no return value.";
+      } catch (err) {
+        out.classList.remove('hidden', 'text-cyan-300');
+        out.classList.add('text-rose-400');
+        text.innerText = err.message;
+      }
+    }
+
+    function clearScratchpad() {
+      document.getElementById('scratchpad-input').value = "";
+      document.getElementById('scratchpad-output').classList.add('hidden');
+    }
+
+    function copySnippet() {
+      const code = document.getElementById('puzzle-code-display').innerText;
+      copyText(code);
+      showFeedback("Code snippet copied to clipboard!", "info");
+    }
+
+    function copyText(str) {
+      const el = document.createElement('textarea');
+      el.value = str;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+
+    function showVictory() {
+      isTimerRunning = false;
+      const elapsed = INITIAL_SECONDS - timeRemaining;
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
+
+      document.getElementById('victory-time-taken').innerText = `${mins}m ${secs}s`;
+      document.getElementById('victory-hints-used').innerText = `${totalHintsUsed}`;
+      document.getElementById('victory-track-name').innerText = PUZZLE_DATA[currentTrack].name;
+      document.getElementById('victory-modal').classList.remove('hidden');
+
+      // Trigger victory confetti burst
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 120,
+          spread: 80,
+          origin: { y: 0.6 }
+        });
+      }
+    }
+
+    function shareVictory() {
+      const timeStr = document.getElementById('victory-time-taken').innerText;
+      const text = `CYBER ESCAPE PROTOCOL SOLVED!\nTrack: ${PUZZLE_DATA[currentTrack].name}\nTime Elapsed: ${timeStr}\nHints Used: ${totalHintsUsed}\nStatus: OVERRIDDEN`;
+      copyText(text);
+      const note = document.getElementById('share-notification');
+      note.classList.remove('opacity-0');
+      note.classList.add('opacity-100');
+      setTimeout(() => note.classList.add('opacity-0'), 2500);
+    }
+
+    function resetMission() {
+      document.getElementById('victory-modal').classList.add('hidden');
+      timeRemaining = INITIAL_SECONDS;
+      isTimerRunning = true;
+      unlockedRooms = [1];
+      collectedKeys = {};
+      totalHintsUsed = 0;
+      penaltyMinutes = 0;
+      document.getElementById('hint-penalty-badge').innerText = `Penalties applied: 0m`;
+      document.getElementById('timer-toggle-btn').innerText = "❚❚";
+      updateHUDKeys();
+      startTimer();
+      loadRoom(1);
+    }
+
+    window.onload = function() {
+      startTimer();
+      renderTrackButtons();
+      updateHUDLabels();
+      loadRoom(1);
+    };
+  </script>
+</body>
+</html>
